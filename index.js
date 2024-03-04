@@ -15,6 +15,9 @@ const port = 6000;
 app.use(morgan("short"));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+app.corsOptions = {
+  origin: "http://localhost:3300",
+};
 
 app.get("/users", (req, res) => {
   res.json({
