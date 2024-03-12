@@ -5,8 +5,8 @@ const path = require("path");
 const multer = require("multer");
 const cors = require("cors");
 const fs = require("fs");
-const users = require("./users");
 const { error } = require("console");
+const database = require ("./database")
 
 const upload = multer({ dest: "public" });
 const app = express();
@@ -19,134 +19,90 @@ app.corsOptions = {
   origin: "http://localhost:3300",
 };
 
-app.get("/users", (req, res) => {
-  res.json({
-    status: "ok",
-    data: users,
-  });
-});
-
-app.get("/users/:name", (req, res) => {
-  const name = req.params.name;
-  const user = users.find(
-    (user) => user.name.toLowerCase() === name.toLowerCase()
-  );
-  if (user) {
-    res.json ({
-      status: "ok",
-      data: user,
-    });
-  } else {
-    res.status (404).json({
-      status: "not found",
-    });
-  }
-});
-
-app.post("/users", (req, res) => {
-  const payload = req.body;
+// Get
+app.get("/students", async (req, res) => {
   try {
-    if (!payload?.id || !payload?.name) {
-      throw new Error("Masukkan data yang akan diubah:");
-    }
-    const newUser = {
-      id: users.length+1,
-      name: payload.username,
-      password: payload.password,
-    };
-    users.push(newUser);
-    res.json({
-      status: "ok",
-      data: users,
-    });
-  } catch (error) {
-    res.status(400).json({
-      status: "error",
-      message: error.message,
-    });
-  }
-});
-
-app.post("/upload", upload.single ("file"), (req, res) => {
-  const file = req.file;
-  if (file) {
-    const target = path.join(__dirname, "public, file.originalname");
-    fs.renameSync(file.path, target);
-    res.json({
+    const result = await database.query("SELECT * FROM students");
+    res.status(200).json({
       status: "success",
-      message: "upload file succeed",
-      data: file,
+      data: result.rows,
     });
-  } else {
-    res.json({
-      status: "error",
-      message: "Masukkan data yang akan diubah",
-    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal Server Error");
   }
 });
 
-app.put("/users/:name", (req, res) => {
-  const name = req.params.name;
-  const payload = req.body;
+// Post
+app.post("/students", async (req, res) => {
+  const { name, address } = req.body;
   try {
-    if (!(!payload?.name || !payload?.id)) {
-      throw new error("Masukkan data yang akan diubah:");
-    }
-    const user = users.find((user) =>
-    user.name.toLowerCase() === name.toLowerCase());
-    if (!user) {
-      throw new error("Data user tidak ditemukan");
-    }
-    console.log(payload);
+    const result = await database.query(
+      `INSERT into students (name, address) values ('${name}', '${address}')`
+    );
+    res.status(200).json({
+      status: "success",
+      message: "data berhasil dimasukan",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal Server Error");
+  }
+});
 
-    if (payload.name) user.name = payload.name;
-    if (payload.id) user.id = payload.id;
-    console.log(user);
-    res.json({
-      status: "ok",
-      data: user,
+// Update
+app.patch("/students/:id", async (req, res) => {
+  const {id} = req.params;
+  const {name, address} = req.body;
+  try {
+    const result = await database.query (`
+    UPDATE public.students
+	  SET name=${name}, address=${address}
+	  WHERE id=${id}`);
+    res.status(200).json({
+      status: "success",
+      message: "data berhasil diupdate",
+      data: result.rows,
     });
   } catch (error) {
-    res.status(400).json({
-      status: "error",
-      message: error.message,
-    });
+    console.error(err);
+    res.status(500).send("Internal Server Error");
   }
 });
 
-app.delete("/users/:name", (req, res) => {
-  const name = req.params.name;
-  const user = users.find((user) =>
-  user.name.toLowerCase() === name.toLowerCase());
-  if (user) {
-    users.splice(users.indexOf(user), 1);
-    res.json({
-      status: "ok",
-      data: user,
+// Delete
+app.delete("/students/:id", async (req, res) => {
+  const {id} = req.params;
+  try {
+    const result = await database.query (`
+    DELETE FROM students
+  	WHERE id=${id}`);
+    res.status(200).json({
+      status: "success",
+      message: "data berhasil dihapus",
     });
-  } else {
-    res.status(404).json({
-      status: "tidak ditemukan",
-    });
+    } catch (error) {
+      console.error(err);
+      res.status(500).send("Internal Server Error");
   }
 });
 
-app.use((_, res) => {
-  res.status(404).json({
-    status: "error",
-    message: "resource not found",
-  });
+// Get by ID
+app.get("/students/:id", async (req, res) => {
+  const {id} = req.params;
+  try {
+    const result = await database.query(`SELECT * FROM students WHERE id=${id}`);
+    res.status(200).json({
+      status: "success",
+      data: result.rows,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal Server Error");
+  }
 });
 
-app.use((err, _req, res, _next) => {
-  console.error(err.stack);
-  res.status(404).json({
-    status: "error",
-    message: "server error",
-  });
-});
 
 app.listen(port, () => {
   console.log(`Server berjalan pada http://localhost:${port}`);
 });
-
