@@ -6,7 +6,7 @@ const multer = require("multer");
 const cors = require("cors");
 const fs = require("fs");
 const { error } = require("console");
-const database = require ("./database")
+const {prisma} = require ("./database")
 
 const upload = multer({ dest: "public" });
 const app = express();
@@ -19,13 +19,12 @@ app.corsOptions = {
   origin: "http://localhost:3300",
 };
 
-// Get
 app.get("/students", async (req, res) => {
   try {
-    const result = await database.query("SELECT * FROM students");
+    const data = await prisma.students.findMany();
     res.status(200).json({
-      status: "success",
-      data: result.rows,
+      status: "Success",
+      data,
     });
   } catch (err) {
     console.error(err);
@@ -33,16 +32,24 @@ app.get("/students", async (req, res) => {
   }
 });
 
-// Post
 app.post("/students", async (req, res) => {
   const { name, address } = req.body;
   try {
-    const result = await database.query(
-      `INSERT into students (name, address) values ('${name}', '${address}')`
-    );
+    if (!name || !address)
+      return res.status(400).json({
+        status: "Failed",
+        message: "Nama dan alamat tidak diisi",
+      });
+    const data = await prisma.students.create({
+      data: {
+        name,
+        address,
+      },
+    });
     res.status(200).json({
-      status: "success",
-      message: "data berhasil dimasukan",
+      status: "Success",
+      message: "Data berhasil dimasukkan",
+      data,
     });
   } catch (err) {
     console.error(err);
@@ -50,58 +57,79 @@ app.post("/students", async (req, res) => {
   }
 });
 
-// Update
-app.patch("/students/:id", async (req, res) => {
-  const {id} = req.params;
-  const {name, address} = req.body;
+// Get Student by ID
+app.get("/students/:id", async (req, res) => {
+  const { id } = req.params;
   try {
-    const result = await database.query (`
-    UPDATE public.students
-	  SET name=${name}, address=${address}
-	  WHERE id=${id}`);
+    const data = await prisma.students.findUnique({
+      where: {
+        id: parseInt(id, 10),
+      },
+    });
     res.status(200).json({
-      status: "success",
-      message: "data berhasil diupdate",
-      data: result.rows,
+      status: "Success",
+      data,
     });
   } catch (error) {
-    console.error(err);
+    console.log(error);
     res.status(500).send("Internal Server Error");
   }
 });
 
-// Delete
+// Update Student by ID
+app.patch("/students/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, address } = req.body;
+  try {
+    const data = await prisma.students.update({
+      where: {
+        id: parseInt(id, 10),
+      },
+      data: {
+        name,
+        address,
+      },
+    });
+    res.status(200).json({
+      status: "Success",
+      message: "Update data berhasil",
+      data,
+    });
+  } catch (error) {
+    if (error.code === "P2025")
+      return res.status(404).json({
+        status: "Failed",
+        message: "Data tidak ditemukan",
+      });
+    console.log(error);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// Delete Student by ID
 app.delete("/students/:id", async (req, res) => {
-  const {id} = req.params;
+  const { id } = req.params;
   try {
-    const result = await database.query (`
-    DELETE FROM students
-  	WHERE id=${id}`);
-    res.status(200).json({
-      status: "success",
-      message: "data berhasil dihapus",
+    const data = await prisma.students.delete({
+      where: {
+        id: parseInt(id, 10),
+      },
     });
-    } catch (error) {
-      console.error(err);
-      res.status(500).send("Internal Server Error");
-  }
-});
-
-// Get by ID
-app.get("/students/:id", async (req, res) => {
-  const {id} = req.params;
-  try {
-    const result = await database.query(`SELECT * FROM students WHERE id=${id}`);
     res.status(200).json({
-      status: "success",
-      data: result.rows,
+      status: "Success",
+      message: "Berhasil menghapus data",
+      data,
     });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    if (error.code === "P2025")
+      return res.status(404).json({
+        status: "Failed",
+        message: "Data tidak ditemukan",
+      });
+    console.log(error);
     res.status(500).send("Internal Server Error");
   }
 });
-
 
 app.listen(port, () => {
   console.log(`Server berjalan pada http://localhost:${port}`);
